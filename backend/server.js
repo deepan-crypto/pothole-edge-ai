@@ -129,7 +129,6 @@ io.on('connection', (socket) => {
       receivedAt: new Date()
     });
     
-    // Broadcast to all watchers and general listeners
     io.to(`watch-${deviceId}`).emit('liveStream', data);
     socket.broadcast.emit('liveStream', data);
     
