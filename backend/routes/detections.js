@@ -307,4 +307,153 @@ router.get('/latest', async (req, res) => {
   }
 });
 
+// @route   GET /api/detections/realtime
+// @desc    Get real-time detection data including live stream info
+// @access  Public
+router.get('/realtime', async (req, res) => {
+  try {
+    const latestFrames = req.app.get('latestFrames') || new Map();
+    const activeDevices = req.app.get('activeDevices') || new Map();
+    
+    // Get recent detections from database
+    const recentDetections = await PotholeDetection.find()
+      .sort({ detectedAt: -1 })
+      .limit(20);
+    
+    // Get live detections from active streams
+    const liveDetections = [];
+    latestFrames.forEach((frame, deviceId) => {
+      if (frame.detections && frame.detections.length > 0) {
+        frame.detections.forEach(det => {
+          liveDetections.push({
+            ...det,
+            deviceId,
+            timestamp: frame.timestamp,
+            isLive: true
+          });
+        });
+      }
+    });
+    
+    // Get active device stats
+    const deviceStats = [];
+    activeDevices.forEach((device, deviceId) => {
+      deviceStats.push({
+        deviceId,
+        isOnline: (new Date() - new Date(device.lastSeen)) < 30000,
+        lastSeen: device.lastSeen,
+        stats: device.status || {}
+      });
+    });
+    
+    res.json({
+      success: true,
+      data: {
+        liveDetections,
+        recentDetections: recentDetections.map(d => ({
+          id: d._id,
+          detectionId: d.detectionId,
+          timestamp: d.detectedAt,
+          severity: d.severity,
+          type: d.type,
+          location: d.location,
+          confidence: d.confidence,
+          gps: d.gps,
+          forwarded: d.forwarded
+        })),
+        deviceStats,
+        timestamp: new Date()
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error fetching realtime data:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching realtime data',
+      error: error.message
+    });
+  }
+});
+
+// @route   GET /api/detections/stats
+// @desc    Get detection statistics
+// @access  Public
+router.get('/stats', async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Total detections
+    const totalDetections = await PotholeDetection.countDocuments();
+    
+    // Today's detections
+    const todayDetections = await PotholeDetection.countDocuments({
+      detectedAt: { $gte: today }
+    });
+    
+    // Severity breakdown
+    const severityStats = await PotholeDetection.aggregate([
+      {
+        $group: {
+          _id: '$severity',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+    
+    // Type breakdown
+    const typeStats = await PotholeDetection.aggregate([
+      {
+        $group: {
+          _id: '$type',
+          count: { $sum: 1 }
+        }
+      },
+      { $sort: { count: -1 } },
+      { $limit: 10 }
+    ]);
+    
+    // Forwarded vs not forwarded
+    const forwardedCount = await PotholeDetection.countDocuments({ forwarded: true });
+    
+    // Get live stats from active devices
+    const activeDevices = req.app.get('activeDevices') || new Map();
+    let totalInferenceRate = 0;
+    let deviceCount = 0;
+    
+    activeDevices.forEach((device) => {
+      if (device.status && device.status.inferenceRate) {
+        totalInferenceRate += device.status.inferenceRate;
+        deviceCount++;
+      }
+    });
+    
+    res.json({
+      success: true,
+      data: {
+        totalDetections,
+        todayDetections,
+        severity: Object.fromEntries(
+          severityStats.map(s => [s._id, s.count])
+        ),
+        types: typeStats.map(t => ({ type: t._id, count: t.count })),
+        forwarded: forwardedCount,
+        pending: totalDetections - forwardedCount,
+        activeDevices: activeDevices.size,
+        avgInferenceRate: deviceCount > 0 ? Math.round(totalInferenceRate / deviceCount) : 0,
+        timestamp: new Date()
+      }
+    });
+    
+  } catch (error) {
+    console.error('Error fetching stats:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error fetching statistics',
+      error: error.message
+    });
+  }
+});
+
 module.exports = router;

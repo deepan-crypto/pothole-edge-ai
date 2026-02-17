@@ -10,6 +10,7 @@ const connectDB = require('./config/db');
 const detectionRoutes = require('./routes/detections');
 const ticketRoutes = require('./routes/tickets');
 const deviceRoutes = require('./routes/devices');
+const liveRoutes = require('./routes/live');
 
 // Initialize Express app
 const app = express();
@@ -25,6 +26,14 @@ const io = new Server(server, {
 
 // Make io accessible to routes
 app.set('io', io);
+
+// Store active device connections and latest data
+const activeDevices = new Map();
+const latestFrames = new Map();
+
+// Make shared state accessible to routes
+app.set('activeDevices', activeDevices);
+app.set('latestFrames', latestFrames);
 
 // Connect to MongoDB
 connectDB();
@@ -47,6 +56,7 @@ app.use((req, res, next) => {
 app.use('/api/detections', detectionRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/devices', deviceRoutes);
+app.use('/api/live', liveRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -68,7 +78,8 @@ app.get('/', (req, res) => {
       health: '/api/health',
       detections: '/api/detections',
       tickets: '/api/tickets',
-      devices: '/api/devices'
+      devices: '/api/devices',
+      live: '/api/live'
     }
   });
 });
@@ -77,13 +88,63 @@ app.get('/', (req, res) => {
 io.on('connection', (socket) => {
   console.log(`Client connected: ${socket.id}`);
   
-  // Handle device registration
+  // Handle device registration (Jetson Nano)
   socket.on('registerDevice', (deviceId) => {
     socket.join(`device-${deviceId}`);
+    socket.deviceId = deviceId;
+    activeDevices.set(deviceId, {
+      socketId: socket.id,
+      connectedAt: new Date(),
+      lastSeen: new Date()
+    });
     console.log(`Device ${deviceId} registered`);
+    
+    // Notify frontend clients
+    io.emit('deviceConnected', { deviceId, timestamp: new Date() });
   });
   
-  // Handle real-time detection stream from Jetson
+  // Handle frontend client joining to watch a device
+  socket.on('watchDevice', (deviceId) => {
+    socket.join(`watch-${deviceId}`);
+    console.log(`Client ${socket.id} watching device ${deviceId}`);
+    
+    // Send latest frame if available
+    if (latestFrames.has(deviceId)) {
+      socket.emit('liveStream', latestFrames.get(deviceId));
+    }
+  });
+  
+  // Handle live stream from Jetson Nano (with video frame)
+  socket.on('liveStream', (data) => {
+    const deviceId = data.deviceId || socket.deviceId;
+    
+    // Update device last seen
+    if (activeDevices.has(deviceId)) {
+      activeDevices.get(deviceId).lastSeen = new Date();
+    }
+    
+    // Store latest frame for new viewers
+    latestFrames.set(deviceId, {
+      ...data,
+      receivedAt: new Date()
+    });
+    
+    // Broadcast to all watchers and general listeners
+    io.to(`watch-${deviceId}`).emit('liveStream', data);
+    socket.broadcast.emit('liveStream', data);
+    
+    // If there are detections, emit separate event for detection list
+    if (data.detections && data.detections.length > 0) {
+      socket.broadcast.emit('liveDetections', {
+        deviceId,
+        detections: data.detections,
+        gps: data.gps,
+        timestamp: data.timestamp
+      });
+    }
+  });
+  
+  // Handle real-time detection stream from Jetson (legacy support)
   socket.on('detectionStream', async (data) => {
     // Broadcast to all connected clients
     socket.broadcast.emit('liveDetection', data);
@@ -91,11 +152,38 @@ io.on('connection', (socket) => {
   
   // Handle device status updates
   socket.on('deviceStatusUpdate', (data) => {
+    const deviceId = data.deviceId || socket.deviceId;
+    
+    // Update device info
+    if (activeDevices.has(deviceId)) {
+      activeDevices.get(deviceId).lastSeen = new Date();
+      activeDevices.get(deviceId).status = data;
+    }
+    
     io.emit('deviceStatus', data);
+  });
+  
+  // Handle request for active devices
+  socket.on('getActiveDevices', () => {
+    const devices = [];
+    activeDevices.forEach((value, key) => {
+      devices.push({
+        deviceId: key,
+        ...value
+      });
+    });
+    socket.emit('activeDevices', devices);
   });
   
   socket.on('disconnect', () => {
     console.log(`Client disconnected: ${socket.id}`);
+    
+    // Remove device if it was a Jetson
+    if (socket.deviceId) {
+      activeDevices.delete(socket.deviceId);
+      latestFrames.delete(socket.deviceId);
+      io.emit('deviceDisconnected', { deviceId: socket.deviceId, timestamp: new Date() });
+    }
   });
 });
 

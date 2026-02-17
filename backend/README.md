@@ -53,17 +53,28 @@ npm start
 | GET | `/api/detections` | Get all detections |
 | GET | `/api/detections/stats` | Get detection statistics |
 | GET | `/api/detections/latest` | Get latest detections |
+| GET | `/api/detections/realtime` | Get real-time data including live stream |
 | POST | `/api/detections/:id/forward` | Forward detection to PWD |
+
+### Live Streaming
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/live/status` | Get live streaming status |
+| GET | `/api/live/devices` | Get active streaming devices |
+| GET | `/api/live/frame/:deviceId` | Get latest frame from device |
+| POST | `/api/live/stream` | HTTP fallback for live stream |
+| GET | `/api/live/events/:deviceId` | SSE endpoint for live updates |
 
 ### Repair Tickets
 
 | Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/tickets` | Get all repair tickets |
-| GET | `/api/tickets/stats` | Get ticket statistics |
-| GET | `/api/tickets/:id` | Get single ticket |
-| PATCH | `/api/tickets/:id/status` | Update ticket status |
-| PATCH | `/api/tickets/:id/assign` | Assign crew to ticket |
+|--------|----------                   |-------------|
+| GET    | `/api/tickets`              | Get all repair tickets |
+| GET    | `/api/tickets/stats`        | Get ticket statistics |
+| GET    | `/api/tickets/:id`          | Get single ticket |
+| PATCH  | `/api/tickets/:id/status` | Update ticket status |
+| PATCH  | `/api/tickets/:id/assign` | Assign crew to ticket |
 
 ### Devices
 
@@ -140,12 +151,50 @@ print(response.json())
 - `newTicket` - New repair ticket created
 - `ticketUpdated` - Ticket status changed
 - `deviceStatus` - Device status update
-- `liveDetection` - Real-time detection stream
+- `liveStream` - Live video stream with detections
+- `liveDetections` - Real-time detection data only
+- `deviceConnected` - Device came online
+- `deviceDisconnected` - Device went offline
 
 ### Server Events (Emit)
-- `registerDevice` - Register a device
-- `detectionStream` - Stream detection data
+- `registerDevice` - Register a Jetson Nano device
+- `watchDevice` - Subscribe to specific device stream
+- `liveStream` - Stream video frame with detections
 - `deviceStatusUpdate` - Update device status
+- `getActiveDevices` - Request list of active devices
+
+## Running the Jetson Nano Detection
+
+Use the `pth.py` script to run the YOLOv8 pothole detection model on Jetson Nano:
+
+```bash
+# Basic usage (default camera and model)
+python pth.py
+
+# With custom options
+python pth.py --model pothole.pt --server http://192.168.1.100:5000 --device JETSON-001 --camera 0
+
+# Headless mode (no display)
+python pth.py --headless
+```
+
+### pth.py Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--model` | `pothole.pt` | Path to YOLOv8 model file |
+| `--server` | `http://localhost:5000` | Backend server URL |
+| `--device` | `JETSON-001` | Device identifier |
+| `--camera` | `0` | Camera index |
+| `--headless` | `false` | Run without display |
+
+### Required Python Packages (Jetson Nano)
+
+```bash
+pip install ultralytics opencv-python requests python-socketio[client]
+# Optional for GPS
+pip install pyserial
+```
 
 ## Data Models
 
