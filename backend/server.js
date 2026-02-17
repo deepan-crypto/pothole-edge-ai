@@ -17,9 +17,16 @@ const app = express();
 const server = http.createServer(app);
 
 // Initialize Socket.IO for real-time communication
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'http://localhost:5173',
+  'https://pothole-edge-ai.vercel.app',
+  'https://pothole-edge-ai.vercel.app/' // Handle trailing slash
+].filter(Boolean);
+
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: allowedOrigins,
     methods: ['GET', 'POST', 'PATCH', 'DELETE']
   }
 });
@@ -40,7 +47,7 @@ connectDB();
 
 // Middleware
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: allowedOrigins,
   credentials: true
 }));
 app.use(express.json({ limit: '50mb' })); // Large limit for image data
@@ -87,7 +94,7 @@ app.get('/', (req, res) => {
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   console.log(`Client connected: ${socket.id}`);
-  
+
   // Handle device registration (Jetson Nano)
   socket.on('registerDevice', (deviceId) => {
     socket.join(`device-${deviceId}`);
@@ -98,40 +105,40 @@ io.on('connection', (socket) => {
       lastSeen: new Date()
     });
     console.log(`Device ${deviceId} registered`);
-    
+
     // Notify frontend clients
     io.emit('deviceConnected', { deviceId, timestamp: new Date() });
   });
-  
+
   // Handle frontend client joining to watch a device
   socket.on('watchDevice', (deviceId) => {
     socket.join(`watch-${deviceId}`);
     console.log(`Client ${socket.id} watching device ${deviceId}`);
-    
+
     // Send latest frame if available
     if (latestFrames.has(deviceId)) {
       socket.emit('liveStream', latestFrames.get(deviceId));
     }
   });
-  
+
   // Handle live stream from Jetson Nano (with video frame)
   socket.on('liveStream', (data) => {
     const deviceId = data.deviceId || socket.deviceId;
-    
+
     // Update device last seen
     if (activeDevices.has(deviceId)) {
       activeDevices.get(deviceId).lastSeen = new Date();
     }
-    
+
     // Store latest frame for new viewers
     latestFrames.set(deviceId, {
       ...data,
       receivedAt: new Date()
     });
-    
+
     io.to(`watch-${deviceId}`).emit('liveStream', data);
     socket.broadcast.emit('liveStream', data);
-    
+
     // If there are detections, emit separate event for detection list
     if (data.detections && data.detections.length > 0) {
       socket.broadcast.emit('liveDetections', {
@@ -142,26 +149,26 @@ io.on('connection', (socket) => {
       });
     }
   });
-  
+
   // Handle real-time detection stream from Jetson (legacy support)
   socket.on('detectionStream', async (data) => {
     // Broadcast to all connected clients
     socket.broadcast.emit('liveDetection', data);
   });
-  
+
   // Handle device status updates
   socket.on('deviceStatusUpdate', (data) => {
     const deviceId = data.deviceId || socket.deviceId;
-    
+
     // Update device info
     if (activeDevices.has(deviceId)) {
       activeDevices.get(deviceId).lastSeen = new Date();
       activeDevices.get(deviceId).status = data;
     }
-    
+
     io.emit('deviceStatus', data);
   });
-  
+
   // Handle request for active devices
   socket.on('getActiveDevices', () => {
     const devices = [];
@@ -173,10 +180,10 @@ io.on('connection', (socket) => {
     });
     socket.emit('activeDevices', devices);
   });
-  
+
   socket.on('disconnect', () => {
     console.log(`Client disconnected: ${socket.id}`);
-    
+
     // Remove device if it was a Jetson
     if (socket.deviceId) {
       activeDevices.delete(socket.deviceId);
