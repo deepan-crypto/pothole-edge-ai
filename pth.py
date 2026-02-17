@@ -533,8 +533,8 @@ def main():
     parser = argparse.ArgumentParser(description='Pothole Detection for Jetson Nano')
     parser.add_argument('--model', type=str, default='pothole.pt',
                         help='Path to YOLOv8 model file (default: pothole.pt)')
-    parser.add_argument('--server', type=str, default='http://localhost:5000',
-                        help='Backend server URL (default: http://localhost:5000)')
+    parser.add_argument('--server', type=str, default='https://pothole-edge-ai.onrender.com/',
+                        help='Backend server URL (default: https://pothole-edge-ai.onrender.com/)')
     parser.add_argument('--device', type=str, default='JETSON-001',
                         help='Device ID (default: JETSON-001)')
     parser.add_argument('--camera', type=int, default=0,
@@ -567,3 +567,19 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
