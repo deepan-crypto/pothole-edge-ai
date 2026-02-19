@@ -128,11 +128,6 @@ io.on('connection', (socket) => {
     timestamp: new Date()
   });
 
-  socket.on('disconnect', () => {
-    console.log(`❌ Client disconnected: ${socket.id}`);
-  });
-});
-
   // Handle live stream from Jetson Nano (with video frame)
   socket.on('liveStream', (data) => {
     const deviceId = data.deviceId || socket.deviceId;
@@ -194,7 +189,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    console.log(`Client disconnected: ${socket.id}`);
+    console.log(`❌ Client disconnected: ${socket.id}`);
 
     // Remove device if it was a Jetson
     if (socket.deviceId) {
