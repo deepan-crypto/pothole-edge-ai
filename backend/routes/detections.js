@@ -4,6 +4,16 @@ const PotholeDetection = require('../models/PotholeDetection');
 const RepairTicket = require('../models/RepairTicket');
 const { v4: uuidv4 } = require('uuid');
 
+// Type mapping for handling different client formats
+const TYPE_MAPPING = {
+  'Pothole': 'Severe Pothole',
+  'pothole': 'Severe Pothole',
+  'Crack': 'Asphalt Crack',
+  'crack': 'Asphalt Crack',
+  'Damage': 'Surface Damage',
+  'damage': 'Surface Damage'
+};
+
 // Helper to generate ticket ID
 const generateTicketId = () => {
   const year = new Date().getFullYear();
@@ -38,12 +48,22 @@ const estimateRepairCost = (severity, type) => {
   return Math.round(baseCost * multiplier);
 };
 
+// Type mapping for handling different client formats
+const TYPE_MAPPING = {
+  'Pothole': 'Severe Pothole',
+  'pothole': 'Severe Pothole',
+  'Crack': 'Asphalt Crack',
+  'crack': 'Asphalt Crack',
+  'Damage': 'Surface Damage',
+  'damage': 'Surface Damage'
+};
+
 // @route   POST /api/detections
 // @desc    Receive new pothole detection from Jetson Nano
 // @access  Public (should be secured in production)
 router.post('/', async (req, res) => {
   try {
-    const {
+    let {
       deviceId,
       type,
       severity,
@@ -55,6 +75,39 @@ router.post('/', async (req, res) => {
       imagePath
     } = req.body;
     
+    // Validate required fields
+    if (!type) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required field: type'
+      });
+    }
+    
+    if (!confidence && confidence !== 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Missing required field: confidence'
+      });
+    }
+    
+    // Map type to valid enum value if needed
+    if (TYPE_MAPPING[type]) {
+      type = TYPE_MAPPING[type];
+    }
+    
+    // Ensure we have location or GPS data
+    if (!location && (!latitude || !longitude)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Must provide either location or GPS coordinates (latitude and longitude)'
+      });
+    }
+    
+    // Auto-generate location from GPS if not provided
+    if (!location && latitude && longitude) {
+      location = `GPS: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+    }
+    
     // Generate unique detection ID
     const detectionId = `DET-${Date.now()}-${uuidv4().substring(0, 8)}`;
     
@@ -63,12 +116,12 @@ router.post('/', async (req, res) => {
       detectionId,
       deviceId: deviceId || process.env.DEVICE_ID || 'JETSON-001',
       type,
-      severity,
+      severity: severity || 'medium',
       confidence,
       location,
       gps: {
-        latitude,
-        longitude
+        latitude: latitude || null,
+        longitude: longitude || null
       },
       boundingBox,
       imagePath,

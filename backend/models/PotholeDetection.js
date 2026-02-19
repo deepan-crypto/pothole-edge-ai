@@ -41,17 +41,17 @@ const potholeDetectionSchema = new mongoose.Schema({
   // Location data
   location: {
     type: String,
-    required: true
+    default: null
   },
   
   gps: {
     latitude: {
       type: Number,
-      required: true
+      default: null
     },
     longitude: {
       type: Number,
-      required: true
+      default: null
     }
   },
   
@@ -85,6 +85,31 @@ const potholeDetectionSchema = new mongoose.Schema({
   }
 }, {
   timestamps: true
+});
+
+// Type mapping for handling different client formats
+const TYPE_MAPPING = {
+  'Pothole': 'Severe Pothole',
+  'pothole': 'Severe Pothole',
+  'Crack': 'Asphalt Crack',
+  'crack': 'Asphalt Crack',
+  'Damage': 'Surface Damage',
+  'damage': 'Surface Damage'
+};
+
+// Pre-save hook to validate and transform data
+potholeDetectionSchema.pre('save', function(next) {
+  // Map type values to valid enum values
+  if (this.type && TYPE_MAPPING[this.type]) {
+    this.type = TYPE_MAPPING[this.type];
+  }
+  
+  // Auto-generate location from GPS if not provided
+  if (!this.location && this.gps && this.gps.latitude && this.gps.longitude) {
+    this.location = `GPS: ${this.gps.latitude.toFixed(4)}, ${this.gps.longitude.toFixed(4)}`;
+  }
+  
+  next();
 });
 
 // Index for efficient queries
