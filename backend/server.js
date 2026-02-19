@@ -143,8 +143,9 @@ io.on('connection', (socket) => {
       receivedAt: new Date()
     });
 
-    io.to(`watch-${deviceId}`).emit('liveStream', data);
-    socket.broadcast.emit('liveStream', data);
+    // Broadcast live frame to ALL connected frontend clients so the
+    // dashboard receives it regardless of whether watchDevice was called
+    io.emit('liveStream', data);
 
     // If there are detections, emit separate event for detection list
     if (data.detections && data.detections.length > 0) {
