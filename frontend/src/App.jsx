@@ -25,6 +25,7 @@ import {
   Eye,
   CircleDot
 } from 'lucide-react'
+import { useSocket } from './hooks/useSocket'
 
 // ==================== MOCK DATA ====================
 
@@ -71,9 +72,15 @@ function Header({ signalStrength, jetsonTemp, mpuStatus }) {
               <p className="text-xs text-slate-400">Real-time Road Hazard Detection System</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 ml-6 px-3 py-1.5 bg-green-500/20 rounded-full border border-green-500/30">
-            <div className="w-2.5 h-2.5 bg-green-500 rounded-full pulse-live"></div>
-            <span className="text-sm font-medium text-green-400">System Live</span>
+          <div className={`flex items-center gap-2 ml-6 px-3 py-1.5 rounded-full border ${
+            isConnected 
+              ? 'bg-green-500/20 border-green-500/30' 
+              : 'bg-red-500/20 border-red-500/30'
+          }`}>
+            <div className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-green-500 pulse-live' : 'bg-red-500'}`}></div>
+            <span className={`text-sm font-medium ${isConnected ? 'text-green-400' : 'text-red-400'}`}>
+              {isConnected ? 'Connected' : 'Connecting...'}
+            </span>
           </div>
         </div>
         
@@ -652,7 +659,20 @@ function App() {
   const [speed, setSpeed] = useState(45)
   const [wakeStatus, setWakeStatus] = useState('awake')
   const [gps, setGps] = useState({ lat: '28.6139°N', lng: '77.2090°E' })
-  const [hazardLogs, setHazardLogs] = useState(initialHazardLogs)
+  
+  // Use real socket data
+  const { isConnected, liveDetections } = useSocket()
+  
+  // Convert socket detections to hazard log format
+  const hazardLogs = liveDetections.map((det, idx) => ({
+    id: det.id || det.detectionId || idx,
+    timestamp: det.timestamp ? new Date(det.timestamp).toLocaleTimeString() : '00:00:00',
+    severity: det.severity || 'medium',
+    type: det.type || 'Unknown',
+    location: det.location || 'Unknown Location',
+    gps: `${det.gps?.latitude?.toFixed(4) || '0.0000'}°N, ${det.gps?.longitude?.toFixed(4) || '0.0000'}°E`,
+    forwarded: det.forwarded || false
+  }))
   
   // Simulate live data updates
   useEffect(() => {
@@ -682,11 +702,8 @@ function App() {
   }, [])
   
   const handleForwardLog = (logId) => {
-    setHazardLogs(prev => 
-      prev.map(log => 
-        log.id === logId ? { ...log, forwarded: true } : log
-      )
-    )
+    // TODO: Implement forward detection to PWD
+    console.log('Forward detection:', logId)
   }
 
   return (
