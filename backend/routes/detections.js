@@ -123,7 +123,12 @@ router.post('/', async (req, res) => {
     
     // Emit real-time update via Socket.IO (if available)
     if (req.app.get('io')) {
-      req.app.get('io').emit('newDetection', detection);
+      const io = req.app.get('io');
+      console.log(`📤 Broadcasting newDetection to all clients:`, detection.detectionId);
+      // Broadcast to all connected clients
+      io.emit('newDetection', detection.toObject ? detection.toObject() : detection);
+    } else {
+      console.log('⚠️  Socket.IO not available for broadcasting');
     }
     
     res.status(201).json({

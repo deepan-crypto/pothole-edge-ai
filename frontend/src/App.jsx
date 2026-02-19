@@ -437,7 +437,6 @@ function HazardLog({ logs, onForward }) {
         )}
       </div>
       </div>
-    </div>
   )
 }
 
@@ -672,19 +671,32 @@ function App() {
   // Use real socket data
   const { isConnected, liveDetections } = useSocket()
   
-  // Convert socket detectionsto hazard log format
-  // Fallback to initial mock data if no live detections
+  // Log when liveDetections change
+  useEffect(() => {
+    console.log('📊 Live detections updated:', liveDetections.length, 'items');
+    if (liveDetections.length > 0) {
+      console.log('✅ First detection:', liveDetections[0]);
+    }
+  }, [liveDetections])
+  
+  // Convert socket detections to hazard log format
+  // Fallback to empty if no live detections
   const hazardLogs = liveDetections && liveDetections.length > 0 
-    ? liveDetections.map((det, idx) => ({
-        id: det.id || det.detectionId || idx,
-        timestamp: det.timestamp ? new Date(det.timestamp).toLocaleTimeString() : '00:00:00',
-        severity: det.severity || 'medium',
-        type: det.type || 'Unknown',
-        location: det.location || 'Detected Location',
-        gps: det.gps ? `${det.gps.latitude?.toFixed(4) || '0.0000'}°N, ${det.gps.longitude?.toFixed(4) || '0.0000'}°E` : 'GPS: N/A',
-        forwarded: det.forwarded || false
-      }))
-    : [] // Empty initially, will be populated by real data
+    ? liveDetections.map((det, idx) => {
+        const gpsLat = det.gps?.latitude || 0;
+        const gpsLng = det.gps?.longitude || 0;
+        return {
+          id: det.id || det.detectionId || idx,
+          timestamp: det.timestamp ? new Date(det.timestamp).toLocaleTimeString() : '00:00:00',
+          severity: det.severity || 'medium',
+          type: det.type || 'Unknown Detection',
+          location: det.location || `Lat: ${gpsLat}, Lng: ${gpsLng}`,
+          gps: `${gpsLat.toFixed(4)}°N, ${gpsLng.toFixed(4)}°E`,
+          forwarded: det.forwarded || false,
+          confidence: det.confidence
+        };
+      })
+    : []
   
   // Simulate live data updates
   useEffect(() => {

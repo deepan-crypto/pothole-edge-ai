@@ -88,13 +88,21 @@ export function useSocket() {
 
     // New detection saved to database
     socket.on('newDetection', (detection) => {
-      console.log('Received newDetection:', detection);
+      console.log('🎯 Received newDetection from backend:', detection);
       setLiveDetections(prev => {
         const newDet = {
-          ...detection,
           id: detection._id || detection.detectionId,
-          timestamp: detection.detectedAt || detection.timestamp || new Date().toISOString()
+          detectionId: detection.detectionId,
+          type: detection.type,
+          severity: detection.severity,
+          confidence: detection.confidence,
+          location: detection.location,
+          gps: detection.gps || { latitude: 0, longitude: 0 },
+          forwarded: detection.forwarded || false,
+          timestamp: detection.detectedAt || new Date().toISOString(),
+          deviceId: detection.deviceId
         };
+        console.log('📥 Adding detection to state:', newDet);
         return [newDet, ...prev].slice(0, 50);
       });
     });
