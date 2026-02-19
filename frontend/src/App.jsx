@@ -58,7 +58,7 @@ const boundingBoxes = [
 
 // ==================== HEADER COMPONENT ====================
 
-function Header({ signalStrength, jetsonTemp, mpuStatus }) {
+function Header({ signalStrength, jetsonTemp, mpuStatus, isConnected }) {
   return (
     <header className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-b border-cyan-900/50 px-6 py-3">
       <div className="flex items-center justify-between">
@@ -711,7 +711,8 @@ function App() {
       <Header 
         signalStrength={Math.round(signalStrength)} 
         jetsonTemp={Math.round(jetsonTemp)} 
-        mpuStatus={mpuStatus} 
+        mpuStatus={mpuStatus}
+        isConnected={isConnected}
       />
       
       <div className="flex flex-1 overflow-hidden">
