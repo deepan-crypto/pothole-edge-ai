@@ -48,16 +48,6 @@ const estimateRepairCost = (severity, type) => {
   return Math.round(baseCost * multiplier);
 };
 
-// Type mapping for handling different client formats
-const TYPE_MAPPING = {
-  'Pothole': 'Severe Pothole',
-  'pothole': 'Severe Pothole',
-  'Crack': 'Asphalt Crack',
-  'crack': 'Asphalt Crack',
-  'Damage': 'Surface Damage',
-  'damage': 'Surface Damage'
-};
-
 // @route   POST /api/detections
 // @desc    Receive new pothole detection from Jetson Nano
 // @access  Public (should be secured in production)
