@@ -93,7 +93,7 @@ app.get('/', (req, res) => {
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
-  console.log(`Client connected: ${socket.id}`);
+  console.log(`✅ Client connected: ${socket.id}`);
 
   // Handle device registration (Jetson Nano)
   socket.on('registerDevice', (deviceId) => {
@@ -104,7 +104,7 @@ io.on('connection', (socket) => {
       connectedAt: new Date(),
       lastSeen: new Date()
     });
-    console.log(`Device ${deviceId} registered`);
+    console.log(`✅ Device ${deviceId} registered: ${socket.id}`);
 
     // Notify frontend clients
     io.emit('deviceConnected', { deviceId, timestamp: new Date() });
@@ -113,13 +113,25 @@ io.on('connection', (socket) => {
   // Handle frontend client joining to watch a device
   socket.on('watchDevice', (deviceId) => {
     socket.join(`watch-${deviceId}`);
-    console.log(`Client ${socket.id} watching device ${deviceId}`);
+    console.log(`👁️ Client ${socket.id} watching device ${deviceId}`);
 
     // Send latest frame if available
     if (latestFrames.has(deviceId)) {
       socket.emit('liveStream', latestFrames.get(deviceId));
     }
   });
+
+  // Emit successful connection to client
+  socket.emit('connected', {
+    socketId: socket.id,
+    message: 'Connected to pothole detection backend',
+    timestamp: new Date()
+  });
+
+  socket.on('disconnect', () => {
+    console.log(`❌ Client disconnected: ${socket.id}`);
+  });
+});
 
   // Handle live stream from Jetson Nano (with video frame)
   socket.on('liveStream', (data) => {

@@ -386,47 +386,56 @@ function HazardLog({ logs, onForward }) {
       </div>
       
       <div className="max-h-64 overflow-y-auto log-scroll">
-        {logs.map((log) => (
-          <div key={log.id} className="p-4 border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1">
-                <div className="flex items-center gap-3 mb-2">
-                  <span className="flex items-center gap-1 text-slate-400 text-sm font-mono">
-                    <Clock className="w-3 h-3" />
-                    {log.timestamp}
-                  </span>
-                  <span className={`px-2 py-0.5 text-xs font-semibold rounded-full border ${getSeverityColor(log.severity)}`}>
-                    {log.severity.toUpperCase()}
-                  </span>
+        {logs && logs.length > 0 ? (
+          logs.map((log) => (
+            <div key={log.id} className="p-4 border-b border-slate-800/50 hover:bg-slate-800/30 transition-colors">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="flex items-center gap-1 text-slate-400 text-sm font-mono">
+                      <Clock className="w-3 h-3" />
+                      {log.timestamp}
+                    </span>
+                    <span className={`px-2 py-0.5 text-xs font-semibold rounded-full border ${getSeverityColor(log.severity)}`}>
+                      {log.severity.toUpperCase()}
+                    </span>
+                  </div>
+                  <p className="text-white font-medium">{log.type} detected on {log.location}</p>
+                  <p className="text-slate-400 text-sm mt-1">GPS: {log.gps}</p>
                 </div>
-                <p className="text-white font-medium">{log.type} detected on {log.location}</p>
-                <p className="text-slate-400 text-sm mt-1">GPS: {log.gps}</p>
+                
+                <button
+                  onClick={() => onForward(log.id)}
+                  disabled={log.forwarded}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                    log.forwarded
+                      ? 'bg-green-500/20 text-green-400 border border-green-500/30 cursor-default'
+                      : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30'
+                  }`}
+                >
+                  {log.forwarded ? (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      Sent
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Forward to PWD
+                    </>
+                  )}
+                </button>
               </div>
-              
-              <button
-                onClick={() => onForward(log.id)}
-                disabled={log.forwarded}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                  log.forwarded
-                    ? 'bg-green-500/20 text-green-400 border border-green-500/30 cursor-default'
-                    : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30'
-                }`}
-              >
-                {log.forwarded ? (
-                  <>
-                    <CheckCircle2 className="w-4 h-4" />
-                    Sent
-                  </>
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    Forward to PWD
-                  </>
-                )}
-              </button>
             </div>
+          ))
+        ) : (
+          <div className="p-8 text-center">
+            <AlertTriangle className="w-8 h-8 text-slate-400 mx-auto mb-3 opacity-50" />
+            <p className="text-slate-400 text-sm">No hazard detections yet</p>
+            <p className="text-slate-500 text-xs mt-1">Waiting for real-time data from Jetson Nano...</p>
           </div>
-        ))}
+        )}
+      </div>
       </div>
     </div>
   )

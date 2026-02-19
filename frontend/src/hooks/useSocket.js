@@ -35,6 +35,10 @@ export function useSocket() {
       socket.emit('getActiveDevices');
     });
 
+    socket.on('connected', (data) => {
+      console.log('🔗 Backend connection confirmed:', data);
+    });
+
     socket.on('disconnect', () => {
       console.log('❌ Disconnected from backend');
       setIsConnected(false);
@@ -42,6 +46,10 @@ export function useSocket() {
 
     socket.on('connect_error', (error) => {
       console.error('❌ Connection error:', error);
+    });
+
+    socket.on('error', (error) => {
+      console.error('❌ Socket error:', error);
     });
 
     // Live stream data from Jetson Nano
