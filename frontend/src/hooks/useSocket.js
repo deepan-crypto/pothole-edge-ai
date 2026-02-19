@@ -29,23 +29,24 @@ export function useSocket() {
 
     // Connection events
     socket.on('connect', () => {
-      console.log('Connected to backend:', socket.id);
+      console.log('✅ Connected to backend:', socket.id, 'URL:', BACKEND_URL);
       setIsConnected(true);
       // Request active devices
       socket.emit('getActiveDevices');
     });
 
     socket.on('disconnect', () => {
-      console.log('Disconnected from backend');
+      console.log('❌ Disconnected from backend');
       setIsConnected(false);
     });
 
     socket.on('connect_error', (error) => {
-      console.error('Connection error:', error);
+      console.error('❌ Connection error:', error);
     });
 
     // Live stream data from Jetson Nano
     socket.on('liveStream', (data) => {
+      console.log('📹 Received liveStream:', data);
       setLiveFrame(data);
       if (data.detections && data.detections.length > 0) {
         setLiveDetections(prev => {
@@ -63,6 +64,7 @@ export function useSocket() {
 
     // Separate detection events
     socket.on('liveDetections', (data) => {
+      console.log('🔴 Received liveDetections:', data);
       const { deviceId, detections, gps, timestamp } = data;
       setLiveDetections(prev => {
         const newDetections = detections.map(d => ({
@@ -78,11 +80,15 @@ export function useSocket() {
 
     // New detection saved to database
     socket.on('newDetection', (detection) => {
-      setLiveDetections(prev => [{
-        ...detection,
-        id: detection._id || detection.detectionId,
-        timestamp: new Date().toISOString()
-      }, ...prev].slice(0, 50));
+      console.log('Received newDetection:', detection);
+      setLiveDetections(prev => {
+        const newDet = {
+          ...detection,
+          id: detection._id || detection.detectionId,
+          timestamp: detection.detectedAt || detection.timestamp || new Date().toISOString()
+        };
+        return [newDet, ...prev].slice(0, 50);
+      });
     });
 
     // Device status updates

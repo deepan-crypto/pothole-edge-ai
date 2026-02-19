@@ -663,16 +663,19 @@ function App() {
   // Use real socket data
   const { isConnected, liveDetections } = useSocket()
   
-  // Convert socket detections to hazard log format
-  const hazardLogs = liveDetections.map((det, idx) => ({
-    id: det.id || det.detectionId || idx,
-    timestamp: det.timestamp ? new Date(det.timestamp).toLocaleTimeString() : '00:00:00',
-    severity: det.severity || 'medium',
-    type: det.type || 'Unknown',
-    location: det.location || 'Unknown Location',
-    gps: `${det.gps?.latitude?.toFixed(4) || '0.0000'}°N, ${det.gps?.longitude?.toFixed(4) || '0.0000'}°E`,
-    forwarded: det.forwarded || false
-  }))
+  // Convert socket detectionsto hazard log format
+  // Fallback to initial mock data if no live detections
+  const hazardLogs = liveDetections && liveDetections.length > 0 
+    ? liveDetections.map((det, idx) => ({
+        id: det.id || det.detectionId || idx,
+        timestamp: det.timestamp ? new Date(det.timestamp).toLocaleTimeString() : '00:00:00',
+        severity: det.severity || 'medium',
+        type: det.type || 'Unknown',
+        location: det.location || 'Detected Location',
+        gps: det.gps ? `${det.gps.latitude?.toFixed(4) || '0.0000'}°N, ${det.gps.longitude?.toFixed(4) || '0.0000'}°E` : 'GPS: N/A',
+        forwarded: det.forwarded || false
+      }))
+    : [] // Empty initially, will be populated by real data
   
   // Simulate live data updates
   useEffect(() => {
