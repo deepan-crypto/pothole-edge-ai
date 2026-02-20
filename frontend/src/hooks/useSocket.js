@@ -52,7 +52,25 @@ export function useSocket() {
       console.error('❌ Socket error:', error);
     });
 
-    // Live stream data from Jetson Nano
+    // 🔴 Listen for the relayed 'stream' event from backend
+    socket.on('stream', (data) => {
+      console.log('📹 Received stream from backend:', data);
+      setLiveFrame(data);
+      if (data.detections && data.detections.length > 0) {
+        setLiveDetections(prev => {
+          // Keep last 50 detections
+          const newDetections = [...data.detections.map(d => ({
+            ...d,
+            deviceId: data.deviceId,
+            timestamp: data.timestamp,
+            id: `${Date.now()}-${Math.random()}`
+          })), ...prev];
+          return newDetections.slice(0, 50);
+        });
+      }
+    });
+
+    // Legacy support for liveStream
     socket.on('liveStream', (data) => {
       console.log('📹 Received liveStream:', data);
       setLiveFrame(data);
