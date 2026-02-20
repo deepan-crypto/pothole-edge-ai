@@ -12,6 +12,9 @@ const ticketRoutes = require('./routes/tickets');
 const deviceRoutes = require('./routes/devices');
 const liveRoutes = require('./routes/live');
 
+// Model imports
+const PotholeDetection = require('./models/PotholeDetection');
+
 // Initialize Express app
 const app = express();
 const server = http.createServer(app);
@@ -141,7 +144,7 @@ io.on('connection', (socket) => {
   });
 
   // Handle live stream from Jetson Nano (with video frame) - LEGACY SUPPORT
-  socket.on('liveStream', (data) => {
+  socket.on('liveStream', async (data) => {
     const deviceId = data.deviceId || socket.deviceId;
     console.log(`📹 Received liveStream from Jetson "${deviceId}"`);
 
@@ -162,14 +165,42 @@ io.on('connection', (socket) => {
     // ALSO broadcast to all frontend clients for immediate visibility
     io.emit('stream', data);
     
-    // If there are detections, emit separate event for detection list
+    // 💾 Save detections to MongoDB if any are found
     if (data.detections && data.detections.length > 0) {
-      io.to(`watch-${deviceId}`).emit('liveDetections', {
-        deviceId,
-        detections: data.detections,
-        gps: data.gps,
-        timestamp: data.timestamp
-      });
+      try {
+        const detectionIds = [];
+        
+        // Save each detection to the database
+        for (const det of data.detections) {
+          const detectionRecord = new PotholeDetection({
+            detectionId: `${deviceId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            deviceId: deviceId,
+            type: det.type || 'Surface Damage',
+            severity: det.severity || 'medium',
+            confidence: det.confidence || 0,
+            gps: data.gps || { latitude: 0, longitude: 0 },
+            boundingBox: det.boundingBox || {},
+            location: data.gps ? `GPS: ${data.gps.latitude.toFixed(4)}, ${data.gps.longitude.toFixed(4)}` : null,
+            detectedAt: new Date(data.timestamp || Date.now())
+          });
+          
+          await detectionRecord.save();
+          detectionIds.push(detectionRecord._id);
+        }
+        
+        console.log(`💾 Saved ${data.detections.length} detections to MongoDB`);
+        
+        // Emit separate event for detection list
+        io.to(`watch-${deviceId}`).emit('liveDetections', {
+          deviceId,
+          detections: data.detections,
+          gps: data.gps,
+          timestamp: data.timestamp,
+          dbIds: detectionIds
+        });
+      } catch (err) {
+        console.error(`❌ Failed to save detections: ${err.message}`);
+      }
     }
   });
 
@@ -177,6 +208,28 @@ io.on('connection', (socket) => {
   socket.on('detectionStream', async (data) => {
     // Broadcast to all connected clients
     socket.broadcast.emit('liveDetection', data);
+    
+    // Also save to database if it has detection data
+    if (data.detections && data.detections.length > 0) {
+      try {
+        for (const det of data.detections) {
+          const detectionRecord = new PotholeDetection({
+            detectionId: `${data.deviceId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            deviceId: data.deviceId,
+            type: det.type || 'Surface Damage',
+            severity: det.severity || 'medium',
+            confidence: det.confidence || 0,
+            gps: data.gps || { latitude: 0, longitude: 0 },
+            boundingBox: det.boundingBox || {},
+            detectedAt: new Date(data.timestamp || Date.now())
+          });
+          await detectionRecord.save();
+        }
+        console.log(`💾 Saved ${data.detections.length} detections from detectionStream`);
+      } catch (err) {
+        console.error(`❌ Failed to save detections: ${err.message}`);
+      }
+    }
   });
 
   // Handle device status updates
