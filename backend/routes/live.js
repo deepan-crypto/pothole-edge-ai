@@ -9,7 +9,7 @@ const router = express.Router();
 router.get('/status', (req, res) => {
   const io = req.app.get('io');
   const activeDevices = req.app.get('activeDevices') || new Map();
-  
+
   const devices = [];
   activeDevices.forEach((value, key) => {
     devices.push({
@@ -19,7 +19,7 @@ router.get('/status', (req, res) => {
       status: value.status || null
     });
   });
-  
+
   res.json({
     success: true,
     data: {
@@ -35,7 +35,7 @@ router.get('/status', (req, res) => {
 router.get('/frame/:deviceId', (req, res) => {
   const { deviceId } = req.params;
   const latestFrames = req.app.get('latestFrames') || new Map();
-  
+
   if (latestFrames.has(deviceId)) {
     const frameData = latestFrames.get(deviceId);
     res.json({
@@ -54,12 +54,12 @@ router.get('/frame/:deviceId', (req, res) => {
 // @desc    Get list of all active streaming devices
 router.get('/devices', (req, res) => {
   const activeDevices = req.app.get('activeDevices') || new Map();
-  
+
   const devices = [];
   activeDevices.forEach((value, key) => {
     // Calculate if device is still active (last seen within 30 seconds)
     const isActive = (new Date() - new Date(value.lastSeen)) < 30000;
-    
+
     devices.push({
       deviceId: key,
       socketId: value.socketId,
@@ -69,7 +69,7 @@ router.get('/devices', (req, res) => {
       status: value.status || {}
     });
   });
-  
+
   res.json({
     success: true,
     data: devices
@@ -88,11 +88,11 @@ router.post('/stream', async (req, res) => {
       stats,
       timestamp
     } = req.body;
-    
+
     const io = req.app.get('io');
     const latestFrames = req.app.get('latestFrames') || new Map();
     const activeDevices = req.app.get('activeDevices') || new Map();
-    
+
     // Store latest frame
     const streamData = {
       deviceId,
@@ -103,9 +103,9 @@ router.post('/stream', async (req, res) => {
       timestamp: timestamp || new Date().toISOString(),
       receivedAt: new Date()
     };
-    
+
     latestFrames.set(deviceId, streamData);
-    
+
     // Update device status
     if (!activeDevices.has(deviceId)) {
       activeDevices.set(deviceId, {
@@ -117,11 +117,13 @@ router.post('/stream', async (req, res) => {
       activeDevices.get(deviceId).lastSeen = new Date();
       activeDevices.get(deviceId).status = stats;
     }
-    
-    // Broadcast to WebSocket clients
+
+    // Broadcast to all WebSocket clients
     if (io) {
+      // Emit as 'stream' (primary) and 'liveStream' (legacy) so all frontend listeners catch it
+      io.emit('stream', streamData);
       io.emit('liveStream', streamData);
-      
+
       if (detections && detections.length > 0) {
         io.emit('liveDetections', {
           deviceId,
@@ -131,13 +133,13 @@ router.post('/stream', async (req, res) => {
         });
       }
     }
-    
+
     res.json({
       success: true,
       message: 'Stream data received',
       detectionCount: detections ? detections.length : 0
     });
-    
+
   } catch (error) {
     console.error('Error processing live stream:', error);
     res.status(500).json({
@@ -152,49 +154,49 @@ router.post('/stream', async (req, res) => {
 // @desc    Server-Sent Events endpoint for live updates
 router.get('/events/:deviceId', (req, res) => {
   const { deviceId } = req.params;
-  
+
   // Set headers for SSE
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('Access-Control-Allow-Origin', '*');
-  
+
   // Send initial connection event
   res.write(`event: connected\ndata: ${JSON.stringify({ deviceId, timestamp: new Date() })}\n\n`);
-  
+
   const io = req.app.get('io');
-  
+
   // Create a handler for live stream events
   const streamHandler = (data) => {
     if (data.deviceId === deviceId || !deviceId || deviceId === 'all') {
       res.write(`event: liveStream\ndata: ${JSON.stringify(data)}\n\n`);
     }
   };
-  
+
   const detectionHandler = (data) => {
     if (data.deviceId === deviceId || !deviceId || deviceId === 'all') {
       res.write(`event: detection\ndata: ${JSON.stringify(data)}\n\n`);
     }
   };
-  
+
   const statusHandler = (data) => {
     if (data.deviceId === deviceId || !deviceId || deviceId === 'all') {
       res.write(`event: status\ndata: ${JSON.stringify(data)}\n\n`);
     }
   };
-  
+
   // Listen to Socket.IO events and forward to SSE
   if (io) {
     io.on('liveStream', streamHandler);
     io.on('liveDetections', detectionHandler);
     io.on('deviceStatus', statusHandler);
   }
-  
+
   // Heartbeat every 30 seconds
   const heartbeat = setInterval(() => {
     res.write(`event: heartbeat\ndata: ${JSON.stringify({ timestamp: new Date() })}\n\n`);
   }, 30000);
-  
+
   // Cleanup on close
   req.on('close', () => {
     clearInterval(heartbeat);
