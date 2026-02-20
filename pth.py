@@ -343,11 +343,14 @@ class PotholeDetector:
         """Send live detection data to backend"""
         timestamp = datetime.now().isoformat()
         
-        # Prepare live stream data
+        # Resize frame to ensure consistent size (640x480)
+        frame_resized = cv2.resize(frame, (640, 480))
+        
+        # Prepare live stream data with optimized quality
         stream_data = {
             'deviceId': self.device_id,
             'timestamp': timestamp,
-            'frame': self.encode_frame(frame, quality=40),
+            'frame': self.encode_frame(frame_resized, quality=50),
             'detections': detections,
             'gps': gps_data,
             'stats': {
