@@ -193,4 +193,3 @@ Check that these changes exist in your code:
 3. **Check firewall/network** - Some networks block WebSocket; polling fallback should work
 4. **Monitor bandwidth** - Large frames might timeout; reduce quality=40 → quality=25
 5. **Enable debug logging** - Add console.logs in pth.py and frontend to trace data flow
-

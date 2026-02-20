@@ -222,4 +222,3 @@ If video still doesn't appear after these steps, the problem is likely in one of
 - Frontend not receiving broadcasts (check browser console for `Received stream`)
 
 Use the test client to isolate which part is failing!
-
