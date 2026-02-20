@@ -367,7 +367,7 @@ class PotholeDetector:
             try:
                 self.sio.emit('liveStream', stream_data)
             except Exception as e:
-                print(f"Socket emit failed: {e}")
+                print(f"❌ Socket emit failed: {e}")
         
         # For each new detection, also send via HTTP for database storage
         for det in detections:
