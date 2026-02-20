@@ -27,8 +27,12 @@ const allowedOrigins = [
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
-    methods: ['GET', 'POST', 'PATCH', 'DELETE']
-  }
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    credentials: true,
+    allowEIO3: true  // Support older Socket.IO clients
+  },
+  transports: ['websocket', 'polling'],  // Enable both WebSocket and HTTP polling
+  maxHttpBufferSize: 1e7  // 10MB buffer for large image frames
 });
 
 // Make io accessible to routes
@@ -93,7 +97,8 @@ app.get('/', (req, res) => {
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
-  console.log(`✅ Client connected: ${socket.id}`);
+  const origin = socket.request.headers.referer || socket.handshake.headers.origin || 'unknown';
+  console.log(`✅ Client connected: ${socket.id} from ${origin}`);
 
   // Handle device registration (Jetson Nano)
   socket.on('registerDevice', (deviceId) => {
@@ -104,7 +109,7 @@ io.on('connection', (socket) => {
       connectedAt: new Date(),
       lastSeen: new Date()
     });
-    console.log(`✅ Device ${deviceId} registered: ${socket.id}`);
+    console.log(`✅ Device "${deviceId}" registered: ${socket.id}`);
 
     // Notify frontend clients
     io.emit('deviceConnected', { deviceId, timestamp: new Date() });
@@ -113,7 +118,7 @@ io.on('connection', (socket) => {
   // Handle frontend client joining to watch a device
   socket.on('watchDevice', (deviceId) => {
     socket.join(`watch-${deviceId}`);
-    console.log(`👁️ Client ${socket.id} watching device ${deviceId}`);
+    console.log(`👁️ Client ${socket.id} watching device "${deviceId}"`);
 
     // Send latest frame if available
     if (latestFrames.has(deviceId)) {
@@ -128,9 +133,17 @@ io.on('connection', (socket) => {
     timestamp: new Date()
   });
 
-  // Handle live stream from Jetson Nano (with video frame)
+  // 1️⃣ Listen for frames coming FROM the Jetson Nano (video_frame event)
+  socket.on('video_frame', (data) => {
+    console.log(`📹 Received video_frame from Jetson: ${data.deviceId || socket.deviceId}`);
+    // 2️⃣ BROADCAST to frontend clients as 'stream' event
+    io.emit('stream', data);
+  });
+
+  // Handle live stream from Jetson Nano (with video frame) - LEGACY SUPPORT
   socket.on('liveStream', (data) => {
     const deviceId = data.deviceId || socket.deviceId;
+    console.log(`📹 Received liveStream from Jetson "${deviceId}"`);
 
     // Update device last seen
     if (activeDevices.has(deviceId)) {
@@ -143,12 +156,15 @@ io.on('connection', (socket) => {
       receivedAt: new Date()
     });
 
+    // Relay to specific device watchers
     io.to(`watch-${deviceId}`).emit('liveStream', data);
-    socket.broadcast.emit('liveStream', data);
-
+    
+    // ALSO broadcast to all frontend clients for immediate visibility
+    io.emit('stream', data);
+    
     // If there are detections, emit separate event for detection list
     if (data.detections && data.detections.length > 0) {
-      socket.broadcast.emit('liveDetections', {
+      io.to(`watch-${deviceId}`).emit('liveDetections', {
         deviceId,
         detections: data.detections,
         gps: data.gps,
