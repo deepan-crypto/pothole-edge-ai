@@ -14,6 +14,7 @@ export function useSocket() {
   const [deviceStatus, setDeviceStatus] = useState({});
   const [activeDevices, setActiveDevices] = useState([]);
   const socketRef = useRef(null);
+  const lastFrameTimeRef = useRef(null);  // Track when we last got a WebSocket frame
 
   useEffect(() => {
     // Create socket connection
@@ -33,6 +34,8 @@ export function useSocket() {
       setIsConnected(true);
       // Request active devices
       socket.emit('getActiveDevices');
+      // 🔑 Watch the Jetson device — this makes backend send the latest cached frame immediately
+      socket.emit('watchDevice', 'JETSON-001');
     });
 
     socket.on('connected', (data) => {
@@ -54,7 +57,8 @@ export function useSocket() {
 
     // 🔴 Listen for the relayed 'stream' event from backend
     socket.on('stream', (data) => {
-      console.log('📹 Received stream from backend:', data);
+      console.log('📹 Received stream from backend:', data?.deviceId || 'unknown');
+      lastFrameTimeRef.current = Date.now();  // Track last frame time
       setLiveFrame(data);
       if (data.detections && data.detections.length > 0) {
         setLiveDetections(prev => {
@@ -72,7 +76,8 @@ export function useSocket() {
 
     // Legacy support for liveStream
     socket.on('liveStream', (data) => {
-      console.log('📹 Received liveStream:', data);
+      console.log('📹 Received liveStream:', data?.deviceId || 'unknown');
+      lastFrameTimeRef.current = Date.now();  // Track last frame time
       setLiveFrame(data);
       if (data.detections && data.detections.length > 0) {
         setLiveDetections(prev => {
@@ -161,6 +166,38 @@ export function useSocket() {
     return () => {
       socket.disconnect();
     };
+  }, []);
+
+  // ─── HTTP POLLING FALLBACK ───────────────────────────────────────────────────
+  // If no WebSocket frame has arrived in 5 seconds, poll /api/live/frame/:deviceId
+  // every 2 seconds. This handles Render WebSocket drop-outs on free tier.
+  useEffect(() => {
+    const FALLBACK_AFTER_MS = 5000;   // Start polling if silent for 5s
+    const POLL_INTERVAL_MS  = 2000;   // Poll every 2s
+    const DEVICE_ID = 'JETSON-001';
+
+    const poll = async () => {
+      const now = Date.now();
+      const lastFrame = lastFrameTimeRef.current;
+      // Only poll if we haven't received a WS frame recently
+      if (lastFrame && now - lastFrame < FALLBACK_AFTER_MS) return;
+
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/live/frame/${DEVICE_ID}`);
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json.success && json.data && json.data.frame) {
+          console.log('📡 HTTP polling fallback: got frame for', DEVICE_ID);
+          lastFrameTimeRef.current = Date.now();
+          setLiveFrame(json.data);
+        }
+      } catch (e) {
+        // Network error — silently skip
+      }
+    };
+
+    const interval = setInterval(poll, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
   }, []);
 
   // Watch a specific device's stream
