@@ -182,6 +182,7 @@ class PotholeDetector:
         self.frame_count = 0
         self.fps = 0
         self.last_fps_time = time.time()
+        self.frame_send_counter = 0  # Track frames to rate-limit sending
         
         # Queue for detections
         self.detection_queue = Queue(maxsize=100)
@@ -340,7 +341,13 @@ class PotholeDetector:
             return False
     
     def send_live_data(self, frame, detections, gps_data):
-        """Send live detection data to backend"""
+        """Send live detection data to backend — ALWAYS sends frames (not just on detections)"""
+        # Rate-limit: send every 3rd frame (~10fps) to save bandwidth on free tier
+        # But ALWAYS stream — even with zero detections
+        self.frame_send_counter += 1
+        if self.frame_send_counter % 3 != 0:
+            return  # Skip this frame, but next one will go through
+        
         timestamp = datetime.now().isoformat()
         
         # Resize frame to ensure consistent size (640x480)
@@ -351,7 +358,7 @@ class PotholeDetector:
             'deviceId': self.device_id,
             'timestamp': timestamp,
             'frame': self.encode_frame(frame_resized, quality=50),
-            'detections': detections,
+            'detections': detections,  # [] when no pothole — that's fine, frame still streams
             'gps': gps_data,
             'stats': {
                 'fps': self.fps,
@@ -362,12 +369,17 @@ class PotholeDetector:
             }
         }
         
-        # Send via Socket.IO if connected
+        # Primary: Send via Socket.IO (WebSocket) if connected
         if self.connected and self.sio:
             try:
                 self.sio.emit('liveStream', stream_data)
             except Exception as e:
                 print(f"❌ Socket emit failed: {e}")
+                # Fallback to HTTP if socket fails
+                self._send_http_stream(stream_data)
+        else:
+            # Fallback: send via HTTP POST when WebSocket is disconnected
+            self._send_http_stream(stream_data)
         
         # For each new detection, also send via HTTP for database storage
         for det in detections:
@@ -387,6 +399,17 @@ class PotholeDetector:
             # Queue for async sending
             if not self.detection_queue.full():
                 self.detection_queue.put(detection_record)
+    
+    def _send_http_stream(self, stream_data):
+        """HTTP fallback: POST frame to backend when WebSocket is unavailable"""
+        try:
+            requests.post(
+                f"{self.server_url}/api/live/stream",
+                json=stream_data,
+                timeout=3
+            )
+        except Exception as e:
+            pass  # Silently skip — don't block main loop
     
     def send_device_status(self):
         """Send periodic device status update"""
@@ -433,6 +456,23 @@ class PotholeDetector:
             except:
                 pass
     
+    def keep_alive_thread(self):
+        """Ping backend every 9 minutes to prevent Render free tier from sleeping.
+        Render sleeps after 15 minutes of no HTTP traffic — this prevents that."""
+        print("🔄 Keep-alive thread started (pings Render every 9 minutes)")
+        while self.running:
+            # Wait 9 minutes (540 seconds)
+            for _ in range(540):
+                if not self.running:
+                    return
+                time.sleep(1)
+            # Ping the health endpoint
+            try:
+                response = requests.get(f"{self.server_url}/api/health", timeout=10)
+                print(f"💓 Keep-alive ping: {response.status_code} (Render stays awake)")
+            except Exception as e:
+                print(f"⚠️  Keep-alive ping failed: {e}")
+    
     def run(self):
         """Main detection loop"""
         print("\n" + "="*60)
@@ -453,6 +493,10 @@ class PotholeDetector:
         # Start background threads
         sender_thread = threading.Thread(target=self.detection_sender_thread, daemon=True)
         sender_thread.start()
+        
+        # Start keep-alive thread to prevent Render from sleeping
+        keepalive_thread = threading.Thread(target=self.keep_alive_thread, daemon=True)
+        keepalive_thread.start()
         
         status_interval = 5  # Send status every 5 seconds
         last_status_time = time.time()
