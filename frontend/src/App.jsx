@@ -72,18 +72,17 @@ function Header({ signalStrength, jetsonTemp, mpuStatus, isConnected }) {
               <p className="text-xs text-slate-400">Real-time Road Hazard Detection System</p>
             </div>
           </div>
-          <div className={`flex items-center gap-2 ml-6 px-3 py-1.5 rounded-full border ${
-            isConnected 
-              ? 'bg-green-500/20 border-green-500/30' 
+          <div className={`flex items-center gap-2 ml-6 px-3 py-1.5 rounded-full border ${isConnected
+              ? 'bg-green-500/20 border-green-500/30'
               : 'bg-red-500/20 border-red-500/30'
-          }`}>
+            }`}>
             <div className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-green-500 pulse-live' : 'bg-red-500'}`}></div>
             <span className={`text-sm font-medium ${isConnected ? 'text-green-400' : 'text-red-400'}`}>
               {isConnected ? 'Connected' : 'Connecting...'}
             </span>
           </div>
         </div>
-        
+
         <div className="flex items-center gap-6">
           {/* 4G Signal Strength */}
           <div className="flex items-center gap-2 px-3 py-2 bg-slate-800/50 rounded-lg border border-slate-700/50">
@@ -93,7 +92,7 @@ function Header({ signalStrength, jetsonTemp, mpuStatus, isConnected }) {
               <p className="text-sm font-semibold text-white">{signalStrength}%</p>
             </div>
           </div>
-          
+
           {/* Jetson Nano Temp */}
           <div className="flex items-center gap-2 px-3 py-2 bg-slate-800/50 rounded-lg border border-slate-700/50">
             <Thermometer className={`w-4 h-4 ${jetsonTemp < 60 ? 'text-green-400' : jetsonTemp < 75 ? 'text-yellow-400' : 'text-red-400'}`} />
@@ -102,7 +101,7 @@ function Header({ signalStrength, jetsonTemp, mpuStatus, isConnected }) {
               <p className="text-sm font-semibold text-white">{jetsonTemp}°C</p>
             </div>
           </div>
-          
+
           {/* MPU6050 Status */}
           <div className="flex items-center gap-2 px-3 py-2 bg-slate-800/50 rounded-lg border border-slate-700/50">
             <Activity className={`w-4 h-4 ${mpuStatus === 'Active' ? 'text-green-400' : 'text-yellow-400'}`} />
@@ -133,11 +132,10 @@ function Sidebar({ activeView, setActiveView }) {
           <button
             key={item.id}
             onClick={() => setActiveView(item.id)}
-            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
-              activeView === item.id
+            className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${activeView === item.id
                 ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 text-white'
                 : 'text-slate-400 hover:bg-slate-800/50 hover:text-white border border-transparent'
-            }`}
+              }`}
           >
             <item.icon className={`w-5 h-5 ${activeView === item.id ? 'text-cyan-400' : 'text-slate-500 group-hover:text-cyan-400'}`} />
             <div className="text-left">
@@ -148,7 +146,7 @@ function Sidebar({ activeView, setActiveView }) {
           </button>
         ))}
       </nav>
-      
+
       <div className="p-4 border-t border-slate-800">
         <div className="bg-slate-800/50 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-3">
@@ -177,18 +175,39 @@ function Sidebar({ activeView, setActiveView }) {
 
 // ==================== VIDEO FEED COMPONENT ====================
 
-function VideoFeed() {
+// Severity → border colour mapping for live bounding boxes
+const SEVERITY_COLORS = {
+  high: '#ef4444',
+  medium: '#eab308',
+  low: '#22c55e',
+}
+
+function VideoFeed({ liveFrame }) {
+  const hasLiveFrame = liveFrame && liveFrame.frame
+  const liveBoxes = (liveFrame && liveFrame.detections) ? liveFrame.detections : []
+  const liveStats = liveFrame && liveFrame.stats ? liveFrame.stats : {}
+  const liveTimestamp = liveFrame && liveFrame.timestamp
+    ? new Date(liveFrame.timestamp).toLocaleString()
+    : null
+
   return (
     <div className="relative bg-slate-900 rounded-2xl overflow-hidden border border-slate-700/50 shadow-2xl">
       {/* Video Header */}
       <div className="absolute top-0 left-0 right-0 z-20 bg-gradient-to-b from-black/80 to-transparent p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1 bg-red-500/20 rounded-full border border-red-500/30">
-              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-              <span className="text-xs font-medium text-red-400">REC</span>
+            <div className={`flex items-center gap-2 px-3 py-1 rounded-full border ${hasLiveFrame
+                ? 'bg-red-500/20 border-red-500/30'
+                : 'bg-slate-700/40 border-slate-600/30'
+              }`}>
+              <div className={`w-2 h-2 rounded-full ${hasLiveFrame ? 'bg-red-500 animate-pulse' : 'bg-slate-500'
+                }`}></div>
+              <span className={`text-xs font-medium ${hasLiveFrame ? 'text-red-400' : 'text-slate-400'
+                }`}>{hasLiveFrame ? 'REC' : 'NO FEED'}</span>
             </div>
-            <span className="text-sm text-white/80">Front Camera - 1080p @ 30fps</span>
+            <span className="text-sm text-white/80">
+              {hasLiveFrame ? `Device: ${liveFrame.deviceId || 'JETSON-001'}` : 'Front Camera - Waiting...'}
+            </span>
           </div>
           <div className="flex items-center gap-2 px-3 py-1 bg-cyan-500/20 rounded-full border border-cyan-500/30">
             <Eye className="w-3 h-3 text-cyan-400" />
@@ -196,84 +215,104 @@ function VideoFeed() {
           </div>
         </div>
       </div>
-      
-      {/* Road Image Placeholder */}
+
       <div className="relative aspect-video bg-gradient-to-b from-slate-700 to-slate-800">
-        {/* Road simulation */}
-        <div className="absolute inset-0">
-          <svg viewBox="0 0 100 100" className="w-full h-full" preserveAspectRatio="none">
-            {/* Sky gradient */}
-            <defs>
-              <linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#1e3a5f" />
-                <stop offset="100%" stopColor="#4a6b8a" />
-              </linearGradient>
-              <linearGradient id="roadGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor="#374151" />
-                <stop offset="100%" stopColor="#1f2937" />
-              </linearGradient>
-            </defs>
-            
-            {/* Sky */}
-            <rect x="0" y="0" width="100" height="45" fill="url(#skyGrad)" />
-            
-            {/* Road */}
-            <polygon points="30,45 70,45 100,100 0,100" fill="url(#roadGrad)" />
-            
-            {/* Road markings */}
-            <polygon points="48,50 52,50 55,100 45,100" fill="#9ca3af" opacity="0.6" />
-            
-            {/* Dashed center line */}
-            <line x1="50" y1="55" x2="50" y2="62" stroke="#fbbf24" strokeWidth="0.8" />
-            <line x1="50" y1="68" x2="50" y2="78" stroke="#fbbf24" strokeWidth="1" />
-            <line x1="50" y1="84" x2="50" y2="96" stroke="#fbbf24" strokeWidth="1.2" />
-            
-            {/* Side elements */}
-            <rect x="0" y="45" width="15" height="55" fill="#374151" />
-            <rect x="85" y="45" width="15" height="55" fill="#374151" />
-            
-            {/* Trees/buildings silhouette */}
-            <rect x="2" y="35" width="8" height="15" fill="#1e293b" rx="1" />
-            <rect x="12" y="38" width="6" height="12" fill="#1e293b" rx="1" />
-            <rect x="82" y="32" width="10" height="18" fill="#1e293b" rx="1" />
-            <rect x="94" y="36" width="6" height="14" fill="#1e293b" rx="1" />
-          </svg>
-        </div>
-        
-        {/* Bounding Boxes */}
-        {boundingBoxes.map((box) => (
-          <div
-            key={box.id}
-            className="absolute bbox-animate"
-            style={{
-              left: `${box.x}%`,
-              top: `${box.y}%`,
-              width: `${box.width}%`,
-              height: `${box.height}%`,
-              border: `3px solid ${box.color}`,
-              borderRadius: '4px',
-              boxShadow: `0 0 20px ${box.color}40`,
-            }}
-          >
-            <div
-              className="absolute -top-6 left-0 px-2 py-0.5 text-xs font-bold rounded shadow-lg whitespace-nowrap"
-              style={{ backgroundColor: box.color, color: 'white' }}
-            >
-              {box.label}
+        {hasLiveFrame ? (
+          /* ── REAL LIVE FRAME FROM JETSON NANO ── */
+          <>
+            <img
+              src={`data:image/jpeg;base64,${liveFrame.frame}`}
+              alt="Jetson Nano live feed"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+
+            {/* Real bounding boxes from YOLO detections */}
+            {liveBoxes.map((det, idx) => {
+              const color = SEVERITY_COLORS[det.severity] || SEVERITY_COLORS.medium
+              const bb = det.boundingBox || {}
+              // boundingBox coords are in % of frame width/height
+              const x = bb.x ?? 10
+              const y = bb.y ?? 10
+              const w = bb.width ?? 15
+              const h = bb.height ?? 10
+              return (
+                <div
+                  key={idx}
+                  className="absolute bbox-animate"
+                  style={{
+                    left: `${x}%`,
+                    top: `${y}%`,
+                    width: `${w}%`,
+                    height: `${h}%`,
+                    border: `3px solid ${color}`,
+                    borderRadius: '4px',
+                    boxShadow: `0 0 20px ${color}40`,
+                  }}
+                >
+                  <div
+                    className="absolute -top-6 left-0 px-2 py-0.5 text-xs font-bold rounded shadow-lg whitespace-nowrap"
+                    style={{ backgroundColor: color, color: 'white' }}
+                  >
+                    {det.type || 'Detection'} ({det.confidence ? `${Math.round(det.confidence)}%` : '?'})
+                  </div>
+                </div>
+              )
+            })}
+
+            {/* Live timestamp overlay */}
+            {liveTimestamp && (
+              <div className="absolute bottom-4 left-4 text-white/80 font-mono text-sm bg-black/50 px-3 py-1 rounded">
+                {liveTimestamp}
+              </div>
+            )}
+
+            {/* Live inference stats */}
+            <div className="absolute bottom-4 right-4 flex items-center gap-4 text-white/80 text-sm bg-black/50 px-3 py-1 rounded">
+              {liveStats.inferenceTime && <span>Inference: {liveStats.inferenceTime}ms</span>}
+              <span>Detections: {liveBoxes.length}</span>
+              {liveStats.fps && <span>FPS: {liveStats.fps}</span>}
             </div>
-          </div>
-        ))}
-        
-        {/* Timestamp overlay */}
-        <div className="absolute bottom-4 left-4 text-white/80 font-mono text-sm bg-black/50 px-3 py-1 rounded">
-          2026-02-15 14:02:08
-        </div>
-        
-        {/* AI inference info */}
-        <div className="absolute bottom-4 right-4 flex items-center gap-4 text-white/80 text-sm bg-black/50 px-3 py-1 rounded">
-          <span>Inference: 42ms</span>
-          <span>Detections: 3</span>
-        </div>
+          </>
+        ) : (
+          /* ── PLACEHOLDER: waiting for Jetson Nano ── */
+          <>
+            <div className="absolute inset-0">
+              <svg viewBox="0 0 100 100" className="w-full h-full" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#1e3a5f" />
+                    <stop offset="100%" stopColor="#4a6b8a" />
+                  </linearGradient>
+                  <linearGradient id="roadGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                    <stop offset="0%" stopColor="#374151" />
+                    <stop offset="100%" stopColor="#1f2937" />
+                  </linearGradient>
+                </defs>
+                <rect x="0" y="0" width="100" height="45" fill="url(#skyGrad)" />
+                <polygon points="30,45 70,45 100,100 0,100" fill="url(#roadGrad)" />
+                <polygon points="48,50 52,50 55,100 45,100" fill="#9ca3af" opacity="0.6" />
+                <line x1="50" y1="55" x2="50" y2="62" stroke="#fbbf24" strokeWidth="0.8" />
+                <line x1="50" y1="68" x2="50" y2="78" stroke="#fbbf24" strokeWidth="1" />
+                <line x1="50" y1="84" x2="50" y2="96" stroke="#fbbf24" strokeWidth="1.2" />
+                <rect x="0" y="45" width="15" height="55" fill="#374151" />
+                <rect x="85" y="45" width="15" height="55" fill="#374151" />
+                <rect x="2" y="35" width="8" height="15" fill="#1e293b" rx="1" />
+                <rect x="12" y="38" width="6" height="12" fill="#1e293b" rx="1" />
+                <rect x="82" y="32" width="10" height="18" fill="#1e293b" rx="1" />
+                <rect x="94" y="36" width="6" height="14" fill="#1e293b" rx="1" />
+              </svg>
+            </div>
+
+            {/* Waiting overlay */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center z-10">
+              <div className="bg-black/60 rounded-xl px-6 py-4 flex flex-col items-center gap-3 border border-slate-600/40">
+                <div className="w-3 h-3 rounded-full bg-yellow-400 animate-pulse"></div>
+                <p className="text-white/90 text-sm font-semibold">Waiting for Jetson Nano feed...</p>
+                <p className="text-slate-400 text-xs">Ensure the Jetson client is running and connected</p>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )
@@ -294,7 +333,7 @@ function TelemetryPanel({ gps, speed, wakeStatus }) {
         <div className="font-mono text-lg text-cyan-400">{gps.lng}</div>
         <p className="text-xs text-slate-400 mt-2">Accuracy: ±2.5m | Satellites: 12</p>
       </div>
-      
+
       {/* Speed Card */}
       <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
         <div className="flex items-center gap-2 mb-3">
@@ -312,34 +351,31 @@ function TelemetryPanel({ gps, speed, wakeStatus }) {
           ></div>
         </div>
       </div>
-      
+
       {/* Wake-On-Jolt Status */}
-      <div className={`rounded-xl p-4 border ${
-        wakeStatus === 'awake' 
-          ? 'bg-amber-500/10 border-amber-500/30' 
+      <div className={`rounded-xl p-4 border ${wakeStatus === 'awake'
+          ? 'bg-amber-500/10 border-amber-500/30'
           : 'bg-slate-800/50 border-slate-700/50'
-      }`}>
+        }`}>
         <div className="flex items-center gap-2 mb-3">
           <Zap className={`w-4 h-4 ${wakeStatus === 'awake' ? 'text-amber-400' : 'text-slate-500'}`} />
           <span className="text-sm font-medium text-white">Wake-On-Jolt</span>
         </div>
         <div className="flex items-center gap-3">
-          <div className={`w-3 h-3 rounded-full ${
-            wakeStatus === 'awake' ? 'bg-amber-400 animate-pulse' : 'bg-slate-600'
-          }`}></div>
-          <span className={`text-lg font-semibold ${
-            wakeStatus === 'awake' ? 'text-amber-400' : 'text-slate-400'
-          }`}>
+          <div className={`w-3 h-3 rounded-full ${wakeStatus === 'awake' ? 'bg-amber-400 animate-pulse' : 'bg-slate-600'
+            }`}></div>
+          <span className={`text-lg font-semibold ${wakeStatus === 'awake' ? 'text-amber-400' : 'text-slate-400'
+            }`}>
             {wakeStatus === 'awake' ? 'Awake (Vibration Detected)' : 'Asleep (Power Saving)'}
           </span>
         </div>
         <p className="text-xs text-slate-400 mt-2">
-          {wakeStatus === 'awake' 
-            ? 'MPU6050 triggered wake event - AI processing active' 
+          {wakeStatus === 'awake'
+            ? 'MPU6050 triggered wake event - AI processing active'
             : 'Monitoring for vehicle movement...'}
         </p>
       </div>
-      
+
       {/* Radio Status */}
       <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
         <div className="flex items-center gap-2 mb-3">
@@ -384,7 +420,7 @@ function HazardLog({ logs, onForward }) {
           {logs.length} Events
         </span>
       </div>
-      
+
       <div className="max-h-64 overflow-y-auto log-scroll">
         {logs && logs.length > 0 ? (
           logs.map((log) => (
@@ -403,15 +439,14 @@ function HazardLog({ logs, onForward }) {
                   <p className="text-white font-medium">{log.type} detected on {log.location}</p>
                   <p className="text-slate-400 text-sm mt-1">GPS: {log.gps}</p>
                 </div>
-                
+
                 <button
                   onClick={() => onForward(log.id)}
                   disabled={log.forwarded}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                    log.forwarded
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${log.forwarded
                       ? 'bg-green-500/20 text-green-400 border border-green-500/30 cursor-default'
                       : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30'
-                  }`}
+                    }`}
                 >
                   {log.forwarded ? (
                     <>
@@ -436,22 +471,22 @@ function HazardLog({ logs, onForward }) {
           </div>
         )}
       </div>
-      </div>
+    </div>
   )
 }
 
 // ==================== LIVE AI DASHCAM VIEW ====================
 
-function LiveAIDashcam({ gps, speed, wakeStatus, hazardLogs, onForwardLog }) {
+function LiveAIDashcam({ gps, speed, wakeStatus, hazardLogs, onForwardLog, liveFrame }) {
   return (
     <div className="flex-1 p-6 overflow-auto bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 h-full">
         {/* Main Video Feed */}
         <div className="xl:col-span-2 space-y-6">
-          <VideoFeed />
+          <VideoFeed liveFrame={liveFrame} />
           <HazardLog logs={hazardLogs} onForward={onForwardLog} />
         </div>
-        
+
         {/* Telemetry Side Panel */}
         <div className="xl:col-span-1">
           <div className="sticky top-0">
@@ -473,7 +508,7 @@ function PWDPortal({ tickets }) {
   const totalPotholes = tickets.length
   const totalBudget = tickets.reduce((sum, t) => sum + t.estimatedCost, 0)
   const activeCrews = tickets.filter(t => t.status === 'Crew Dispatched').length
-  
+
   const getStatusStyle = (status) => {
     switch (status) {
       case 'Pending Approval': return 'bg-amber-100 text-amber-800 border-amber-200'
@@ -484,7 +519,7 @@ function PWDPortal({ tickets }) {
       default: return 'bg-gray-100 text-gray-800 border-gray-200'
     }
   }
-  
+
   const getSeverityStyle = (severity) => {
     switch (severity) {
       case 'High': return 'bg-red-100 text-red-800 border-red-200'
@@ -512,7 +547,7 @@ function PWDPortal({ tickets }) {
           <span className="text-sm text-blue-700 font-medium">Connected to Smart Car Fleet - 47 Vehicles Active</span>
         </div>
       </div>
-      
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
@@ -527,7 +562,7 @@ function PWDPortal({ tickets }) {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -543,7 +578,7 @@ function PWDPortal({ tickets }) {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
           <div className="flex items-center justify-between">
             <div>
@@ -557,7 +592,7 @@ function PWDPortal({ tickets }) {
           </div>
         </div>
       </div>
-      
+
       {/* Data Table */}
       <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="p-4 border-b border-slate-200 flex items-center justify-between">
@@ -570,7 +605,7 @@ function PWDPortal({ tickets }) {
             <span className="text-sm text-slate-500">Last sync: 2 min ago</span>
           </div>
         </div>
-        
+
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-slate-50 border-b border-slate-200">
@@ -643,7 +678,7 @@ function PWDPortal({ tickets }) {
             </tbody>
           </table>
         </div>
-        
+
         <div className="p-4 border-t border-slate-200 flex items-center justify-between bg-slate-50">
           <span className="text-sm text-slate-500">Showing {tickets.length} of {tickets.length} entries</span>
           <div className="flex items-center gap-2">
@@ -667,10 +702,10 @@ function App() {
   const [speed, setSpeed] = useState(45)
   const [wakeStatus, setWakeStatus] = useState('awake')
   const [gps, setGps] = useState({ lat: '28.6139°N', lng: '77.2090°E' })
-  
-  // Use real socket data
-  const { isConnected, liveDetections } = useSocket()
-  
+
+  // Use real socket data (liveFrame carries the base64 JPEG + detections from Jetson)
+  const { isConnected, liveDetections, liveFrame } = useSocket()
+
   // Log when liveDetections change
   useEffect(() => {
     console.log('📊 Live detections updated:', liveDetections.length, 'items');
@@ -678,53 +713,53 @@ function App() {
       console.log('✅ First detection:', liveDetections[0]);
     }
   }, [liveDetections])
-  
+
   // Convert socket detections to hazard log format
   // Fallback to empty if no live detections
-  const hazardLogs = liveDetections && liveDetections.length > 0 
+  const hazardLogs = liveDetections && liveDetections.length > 0
     ? liveDetections.map((det, idx) => {
-        const gpsLat = det.gps?.latitude || 0;
-        const gpsLng = det.gps?.longitude || 0;
-        return {
-          id: det.id || det.detectionId || idx,
-          timestamp: det.timestamp ? new Date(det.timestamp).toLocaleTimeString() : '00:00:00',
-          severity: det.severity || 'medium',
-          type: det.type || 'Unknown Detection',
-          location: det.location || `Lat: ${gpsLat}, Lng: ${gpsLng}`,
-          gps: `${gpsLat.toFixed(4)}°N, ${gpsLng.toFixed(4)}°E`,
-          forwarded: det.forwarded || false,
-          confidence: det.confidence
-        };
-      })
+      const gpsLat = det.gps?.latitude || 0;
+      const gpsLng = det.gps?.longitude || 0;
+      return {
+        id: det.id || det.detectionId || idx,
+        timestamp: det.timestamp ? new Date(det.timestamp).toLocaleTimeString() : '00:00:00',
+        severity: det.severity || 'medium',
+        type: det.type || 'Unknown Detection',
+        location: det.location || `Lat: ${gpsLat}, Lng: ${gpsLng}`,
+        gps: `${gpsLat.toFixed(4)}°N, ${gpsLng.toFixed(4)}°E`,
+        forwarded: det.forwarded || false,
+        confidence: det.confidence
+      };
+    })
     : []
-  
+
   // Simulate live data updates
   useEffect(() => {
     const interval = setInterval(() => {
       // Update signal strength
       setSignalStrength(prev => Math.max(60, Math.min(98, prev + (Math.random() - 0.5) * 8)))
-      
+
       // Update Jetson temp
       setJetsonTemp(prev => Math.max(45, Math.min(70, prev + (Math.random() - 0.5) * 4)))
-      
+
       // Update speed
       setSpeed(prev => Math.max(0, Math.min(80, prev + (Math.random() - 0.5) * 10)))
-      
+
       // Update GPS slightly
       setGps(prev => ({
         lat: `${(28.6139 + (Math.random() - 0.5) * 0.001).toFixed(4)}°N`,
         lng: `${(77.2090 + (Math.random() - 0.5) * 0.001).toFixed(4)}°E`
       }))
-      
+
       // Occasionally toggle wake status
       if (Math.random() > 0.95) {
         setWakeStatus(prev => prev === 'awake' ? 'asleep' : 'awake')
       }
     }, 2000)
-    
+
     return () => clearInterval(interval)
   }, [])
-  
+
   const handleForwardLog = (logId) => {
     // TODO: Implement forward detection to PWD
     console.log('Forward detection:', logId)
@@ -732,23 +767,24 @@ function App() {
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-950">
-      <Header 
-        signalStrength={Math.round(signalStrength)} 
-        jetsonTemp={Math.round(jetsonTemp)} 
+      <Header
+        signalStrength={Math.round(signalStrength)}
+        jetsonTemp={Math.round(jetsonTemp)}
         mpuStatus={mpuStatus}
         isConnected={isConnected}
       />
-      
+
       <div className="flex flex-1 overflow-hidden">
         <Sidebar activeView={activeView} setActiveView={setActiveView} />
-        
+
         {activeView === 'dashcam' ? (
-          <LiveAIDashcam 
-            gps={gps} 
-            speed={Math.round(speed)} 
+          <LiveAIDashcam
+            gps={gps}
+            speed={Math.round(speed)}
             wakeStatus={wakeStatus}
             hazardLogs={hazardLogs}
             onForwardLog={handleForwardLog}
+            liveFrame={liveFrame}
           />
         ) : (
           <PWDPortal tickets={pwdRepairTickets} />
