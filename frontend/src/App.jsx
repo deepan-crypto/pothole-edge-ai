@@ -73,8 +73,8 @@ function Header({ signalStrength, jetsonTemp, mpuStatus, isConnected }) {
             </div>
           </div>
           <div className={`flex items-center gap-2 ml-6 px-3 py-1.5 rounded-full border ${isConnected
-              ? 'bg-green-500/20 border-green-500/30'
-              : 'bg-red-500/20 border-red-500/30'
+            ? 'bg-green-500/20 border-green-500/30'
+            : 'bg-red-500/20 border-red-500/30'
             }`}>
             <div className={`w-2.5 h-2.5 rounded-full ${isConnected ? 'bg-green-500 pulse-live' : 'bg-red-500'}`}></div>
             <span className={`text-sm font-medium ${isConnected ? 'text-green-400' : 'text-red-400'}`}>
@@ -133,8 +133,8 @@ function Sidebar({ activeView, setActiveView }) {
             key={item.id}
             onClick={() => setActiveView(item.id)}
             className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group ${activeView === item.id
-                ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 text-white'
-                : 'text-slate-400 hover:bg-slate-800/50 hover:text-white border border-transparent'
+              ? 'bg-gradient-to-r from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 text-white'
+              : 'text-slate-400 hover:bg-slate-800/50 hover:text-white border border-transparent'
               }`}
           >
             <item.icon className={`w-5 h-5 ${activeView === item.id ? 'text-cyan-400' : 'text-slate-500 group-hover:text-cyan-400'}`} />
@@ -197,8 +197,8 @@ function VideoFeed({ liveFrame }) {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className={`flex items-center gap-2 px-3 py-1 rounded-full border ${hasLiveFrame
-                ? 'bg-red-500/20 border-red-500/30'
-                : 'bg-slate-700/40 border-slate-600/30'
+              ? 'bg-red-500/20 border-red-500/30'
+              : 'bg-slate-700/40 border-slate-600/30'
               }`}>
               <div className={`w-2 h-2 rounded-full ${hasLiveFrame ? 'bg-red-500 animate-pulse' : 'bg-slate-500'
                 }`}></div>
@@ -337,25 +337,28 @@ function TelemetryPanel({ gps, speed, wakeStatus }) {
       {/* Speed Card */}
       <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
         <div className="flex items-center gap-2 mb-3">
-          <Gauge className="w-4 h-4 text-green-400" />
+          <Gauge className="w-4 h-4 text-slate-500" />
           <span className="text-sm font-medium text-white">Vehicle Speed</span>
         </div>
         <div className="flex items-baseline gap-2">
-          <span className="text-4xl font-bold text-white">{speed}</span>
+          <span className="text-4xl font-bold text-white">0</span>
           <span className="text-lg text-slate-400">km/h</span>
         </div>
         <div className="mt-3 h-2 bg-slate-700 rounded-full overflow-hidden">
           <div
-            className="h-full bg-gradient-to-r from-green-500 to-cyan-500 rounded-full transition-all duration-500"
-            style={{ width: `${Math.min(speed, 120) / 1.2}%` }}
+            className="h-full bg-slate-600 rounded-full"
+            style={{ width: '0%' }}
           ></div>
         </div>
+        <p className="text-xs text-amber-400 mt-2 flex items-center gap-1">
+          <span>⚠</span> Not connected to motion sensor
+        </p>
       </div>
 
       {/* Wake-On-Jolt Status */}
       <div className={`rounded-xl p-4 border ${wakeStatus === 'awake'
-          ? 'bg-amber-500/10 border-amber-500/30'
-          : 'bg-slate-800/50 border-slate-700/50'
+        ? 'bg-amber-500/10 border-amber-500/30'
+        : 'bg-slate-800/50 border-slate-700/50'
         }`}>
         <div className="flex items-center gap-2 mb-3">
           <Zap className={`w-4 h-4 ${wakeStatus === 'awake' ? 'text-amber-400' : 'text-slate-500'}`} />
@@ -444,8 +447,8 @@ function HazardLog({ logs, onForward }) {
                   onClick={() => onForward(log.id)}
                   disabled={log.forwarded}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all ${log.forwarded
-                      ? 'bg-green-500/20 text-green-400 border border-green-500/30 cursor-default'
-                      : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30'
+                    ? 'bg-green-500/20 text-green-400 border border-green-500/30 cursor-default'
+                    : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/30'
                     }`}
                 >
                   {log.forwarded ? (
@@ -699,7 +702,7 @@ function App() {
   const [signalStrength, setSignalStrength] = useState(85)
   const [jetsonTemp, setJetsonTemp] = useState(52)
   const [mpuStatus, setMpuStatus] = useState('Active')
-  const [speed, setSpeed] = useState(45)
+  const [speed, setSpeed] = useState(0)
   const [wakeStatus, setWakeStatus] = useState('awake')
   const [gps, setGps] = useState({ lat: '28.6139°N', lng: '77.2090°E' })
 
@@ -742,8 +745,7 @@ function App() {
       // Update Jetson temp
       setJetsonTemp(prev => Math.max(45, Math.min(70, prev + (Math.random() - 0.5) * 4)))
 
-      // Update speed
-      setSpeed(prev => Math.max(0, Math.min(80, prev + (Math.random() - 0.5) * 10)))
+      // Speed is sourced from motion sensor only — no simulation
 
       // Update GPS slightly
       setGps(prev => ({
